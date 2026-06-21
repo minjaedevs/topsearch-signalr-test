@@ -1,0 +1,12 @@
+﻿services:
+  - type: web
+    name: topsearch-signalr-test
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: SECRET
+        value: ds-socket-9k3m7x2q5w8e1r4t6y0u
+      - key: HUB_PATH
+        value: /hubs/mobile-check
