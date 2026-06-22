@@ -324,8 +324,15 @@ function readJsonBody(req, callback) {
   });
 }
 
+function setCors(res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+}
+
 function sendJson(res, status, data) {
   const body = JSON.stringify(data, null, 2);
+  setCors(res);
   res.writeHead(status, {
     'content-type': 'application/json; charset=utf-8',
     'cache-control': 'no-store',
@@ -335,6 +342,13 @@ function sendJson(res, status, data) {
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
+
+  if (req.method === 'OPTIONS') {
+    setCors(res);
+    res.writeHead(204);
+    res.end();
+    return;
+  }
 
   if (req.method === 'GET' && url.pathname === '/') {
     sendJson(res, 200, {
