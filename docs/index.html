@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TopSearch Keyword Checker</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f4f8; color: #1a202c; min-height: 100vh; }
+
+  .header { background: linear-gradient(135deg, #0ea5e9, #0284c7); color: #fff; padding: 20px 0; text-align: center; box-shadow: 0 2px 8px rgba(14,165,233,.3); }
+  .header h1 { font-size: 22px; font-weight: 700; letter-spacing: .5px; }
+  .header p { font-size: 13px; opacity: .85; margin-top: 4px; }
+
+  .container { max-width: 720px; margin: 24px auto; padding: 0 16px; }
+
+  .card { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  .card-title { font-size: 14px; font-weight: 600; color: #0284c7; margin-bottom: 12px; text-transform: uppercase; letter-spacing: .5px; }
+
+  /* Keyword input */
+  .input-row { display: flex; gap: 8px; }
+  .input-row textarea { flex: 1; padding: 10px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 14px; resize: vertical; min-height: 80px; font-family: inherit; transition: border-color .2s; }
+  .input-row textarea:focus { outline: none; border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14,165,233,.15); }
+  .input-row textarea::placeholder { color: #94a3b8; }
+
+  .btn { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all .2s; }
+  .btn-primary { background: #0ea5e9; color: #fff; }
+  .btn-primary:hover { background: #0284c7; }
+  .btn-primary:active { transform: scale(.97); }
+  .btn-danger { background: #ef4444; color: #fff; }
+  .btn-danger:hover { background: #dc2626; }
+  .btn-sm { padding: 6px 14px; font-size: 13px; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* Config */
+  .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 500px) { .config-grid { grid-template-columns: 1fr; } }
+
+  .config-group label { display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px; }
+  .radio-group { display: flex; gap: 12px; }
+  .radio-group label { display: flex; align-items: center; gap: 6px; font-weight: 400; cursor: pointer; padding: 8px 16px; border: 1.5px solid #cbd5e1; border-radius: 8px; transition: all .2s; font-size: 14px; }
+  .radio-group input[type="radio"] { accent-color: #0ea5e9; }
+  .radio-group label.active { border-color: #0ea5e9; background: #f0f9ff; color: #0284c7; font-weight: 600; }
+
+  .proxy-display { background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; font-size: 13px; font-family: 'Cascadia Code', 'Fira Code', monospace; color: #334155; word-break: break-all; }
+
+  /* Keyword list */
+  .keyword-list { max-height: 400px; overflow-y: auto; }
+  .keyword-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid #f1f5f9; transition: background .15s; }
+  .keyword-item:last-child { border-bottom: none; }
+  .keyword-item:hover { background: #f8fafc; }
+  .keyword-item input[type="checkbox"] { width: 18px; height: 18px; accent-color: #0ea5e9; cursor: pointer; flex-shrink: 0; }
+  .keyword-item .kw-text { flex: 1; font-size: 14px; font-weight: 500; }
+  .keyword-item .kw-index { font-size: 12px; color: #94a3b8; min-width: 24px; }
+  .keyword-item .kw-remove { background: none; border: none; color: #cbd5e1; cursor: pointer; font-size: 18px; padding: 0 4px; transition: color .2s; }
+  .keyword-item .kw-remove:hover { color: #ef4444; }
+
+  .list-actions { display: flex; gap: 8px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+  .list-actions .count { font-size: 13px; color: #64748b; margin-left: auto; }
+
+  .select-actions { display: flex; gap: 8px; margin-bottom: 12px; }
+  .select-actions button { background: none; border: none; color: #0ea5e9; cursor: pointer; font-size: 13px; font-weight: 600; padding: 4px 0; }
+  .select-actions button:hover { text-decoration: underline; }
+
+  /* Status */
+  .status { margin-top: 12px; padding: 12px; border-radius: 8px; font-size: 13px; display: none; }
+  .status.success { display: block; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+  .status.error { display: block; background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+  .status.loading { display: block; background: #f0f9ff; border: 1px solid #bae6fd; color: #075985; }
+
+  .empty-state { text-align: center; padding: 32px 16px; color: #94a3b8; font-size: 14px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>TopSearch Keyword Checker</h1>
+  <p>Mobile Search Result Checker</p>
+</div>
+
+<div class="container">
+
+  <!-- Input Keywords -->
+  <div class="card">
+    <div class="card-title">Add Keywords</div>
+    <div class="input-row">
+      <textarea id="kwInput" placeholder="Nhap keyword, moi dong 1 keyword&#10;vd:&#10;789bet&#10;new88&#10;78win"></textarea>
+    </div>
+    <div style="margin-top: 10px; display: flex; gap: 8px;">
+      <button class="btn btn-primary" onclick="addKeywords()">Add Keywords</button>
+      <button class="btn btn-danger btn-sm" onclick="clearAll()">Clear All</button>
+    </div>
+  </div>
+
+  <!-- Config -->
+  <div class="card">
+    <div class="card-title">Configuration</div>
+    <div class="config-grid">
+      <div class="config-group">
+        <label>Country</label>
+        <div class="radio-group" id="countryGroup">
+          <label class="active" onclick="selectCountry(1)">
+            <input type="radio" name="country" value="1" checked> VN
+          </label>
+          <label onclick="selectCountry(2)">
+            <input type="radio" name="country" value="2"> TL
+          </label>
+        </div>
+      </div>
+      <div class="config-group">
+        <label>Proxy</label>
+        <div class="proxy-display" id="proxyDisplay">117.5.220.204:33978:lnjgv_itweb:dqzFqlTn</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Keyword List -->
+  <div class="card">
+    <div class="card-title">Keyword List</div>
+    <div class="select-actions" id="selectActions" style="display:none;">
+      <button onclick="selectAll()">Select All</button>
+      <button onclick="deselectAll()">Deselect All</button>
+    </div>
+    <div class="keyword-list" id="keywordList">
+      <div class="empty-state">Chua co keyword nao. Nhap keyword o tren va nhan "Add Keywords".</div>
+    </div>
+    <div class="list-actions" id="listActions" style="display:none;">
+      <button class="btn btn-primary" id="sendBtn" onclick="sendChecked()">Send Checked</button>
+      <button class="btn btn-danger btn-sm" onclick="removeChecked()">Remove Checked</button>
+      <span class="count" id="countInfo"></span>
+    </div>
+  </div>
+
+  <!-- Status -->
+  <div class="status" id="status"></div>
+
+</div>
+
+<script>
+const API_URL = 'https://topsearch-signalr-test.onrender.com/check-keywords';
+
+const PROXIES = {
+  1: '117.5.220.204:33978:lnjgv_itweb:dqzFqlTn',
+  2: '46.203.219.220:41544:ng7SsOfIeq6xmum:18EiSsMgYyOqYjo'
+};
+
+const DEFAULT_KEYWORDS = [
+  { keyword: 'mk8', country: 2 },
+  { keyword: 'f168', country: 2 },
+  { keyword: '789bet', country: 2 },
+  { keyword: 'socolive', country: 1 },
+  { keyword: 'sc88', country: 1 },
+  { keyword: 'qq88', country: 1 },
+  { keyword: 'phimhayok', country: 1 },
+  { keyword: 'open88', country: 1 },
+  { keyword: 'ok9', country: 1 },
+  { keyword: 'new88', country: 1 },
+  { keyword: 'motchill', country: 1 },
+  { keyword: 'luongsontv', country: 1 },
+  { keyword: 'jun88', country: 1 },
+  { keyword: 'fly88', country: 1 },
+  { keyword: 'f168', country: 1 },
+  { keyword: 'cakhiatv', country: 1 },
+  { keyword: '78win', country: 1 },
+  { keyword: 'new88', country: 2 },
+  { keyword: 'mb66', country: 2 },
+  { keyword: '78win', country: 2 },
+  { keyword: 'trực tiếp bóng đá', country: 1 },
+  { keyword: 'shbet', country: 1 },
+  { keyword: 'rophim', country: 1 },
+  { keyword: 'phimmoi', country: 1 },
+  { keyword: 'phim moi', country: 1 },
+  { keyword: 'okvip', country: 1 },
+  { keyword: 'ok8386', country: 1 },
+  { keyword: 'motphim', country: 1 },
+  { keyword: 'mb66', country: 1 },
+  { keyword: 'lương sơn tv', country: 1 },
+  { keyword: 'hi88', country: 1 },
+  { keyword: 'f8bet', country: 1 },
+  { keyword: 'cm88', country: 1 },
+  { keyword: 'c168', country: 1 },
+  { keyword: '789bet', country: 1 },
+];
+
+const COUNTRY_LABELS = { 1: 'vn', 2: 'tl' };
+
+let keywords = DEFAULT_KEYWORDS.map(k => ({ ...k }));
+let currentCountry = 1;
+
+function selectCountry(c) {
+  currentCountry = c;
+  document.getElementById('proxyDisplay').textContent = PROXIES[c];
+  document.querySelectorAll('#countryGroup label').forEach(l => {
+    l.classList.toggle('active', l.querySelector('input').value == c);
+  });
+}
+
+function addKeywords() {
+  const input = document.getElementById('kwInput');
+  const lines = input.value.split('\n').map(s => s.trim()).filter(Boolean);
+  if (lines.length === 0) return;
+
+  let added = 0;
+  for (const kw of lines) {
+    keywords.push({ keyword: kw, country: currentCountry });
+    added++;
+  }
+  input.value = '';
+  renderList();
+  if (added > 0) showStatus(`Da them ${added} keyword (${COUNTRY_LABELS[currentCountry]}).`, 'success');
+}
+
+function clearAll() {
+  keywords = [];
+  renderList();
+  hideStatus();
+}
+
+function removeChecked() {
+  const checked = getCheckedIndexes();
+  if (checked.length === 0) return;
+  keywords = keywords.filter((_, i) => !checked.includes(i));
+  renderList();
+}
+
+function selectAll() {
+  document.querySelectorAll('#keywordList input[type="checkbox"]').forEach(cb => cb.checked = true);
+  updateCount();
+}
+
+function deselectAll() {
+  document.querySelectorAll('#keywordList input[type="checkbox"]').forEach(cb => cb.checked = false);
+  updateCount();
+}
+
+function getCheckedIndexes() {
+  const indexes = [];
+  document.querySelectorAll('#keywordList input[type="checkbox"]').forEach((cb, i) => {
+    if (cb.checked) indexes.push(i);
+  });
+  return indexes;
+}
+
+function updateCount() {
+  const total = keywords.length;
+  const checked = getCheckedIndexes().length;
+  document.getElementById('countInfo').textContent = `${checked} / ${total} selected`;
+  document.getElementById('sendBtn').disabled = checked === 0;
+}
+
+function renderList() {
+  const listEl = document.getElementById('keywordList');
+  const actions = document.getElementById('listActions');
+  const selectActs = document.getElementById('selectActions');
+
+  if (keywords.length === 0) {
+    listEl.innerHTML = '<div class="empty-state">Chua co keyword nao. Nhap keyword o tren va nhan "Add Keywords".</div>';
+    actions.style.display = 'none';
+    selectActs.style.display = 'none';
+    return;
+  }
+
+  listEl.innerHTML = keywords.map((item, i) => `
+    <div class="keyword-item">
+      <input type="checkbox" checked onchange="updateCount()">
+      <span class="kw-index">${i + 1}.</span>
+      <span class="kw-text">${escHtml(item.keyword)} <span style="color:#94a3b8;font-size:12px">(${COUNTRY_LABELS[item.country] || item.country})</span></span>
+      <button class="kw-remove" onclick="removeAt(${i})" title="Remove">&times;</button>
+    </div>
+  `).join('');
+
+  actions.style.display = 'flex';
+  selectActs.style.display = 'flex';
+  updateCount();
+}
+
+function removeAt(i) {
+  keywords.splice(i, 1);
+  renderList();
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function sendChecked() {
+  const checked = getCheckedIndexes();
+  if (checked.length === 0) return;
+
+  const ts = Date.now();
+  const items = checked.map((idx, i) => ({
+    requestId: `web-${ts}-${i + 1}`,
+    keyword: keywords[idx].keyword,
+    proxy: PROXIES[keywords[idx].country],
+    country: keywords[idx].country
+  }));
+
+  const sendBtn = document.getElementById('sendBtn');
+  sendBtn.disabled = true;
+  showStatus(`Dang gui ${items.length} keyword...`, 'loading');
+
+  try {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(items)
+    });
+    const data = await res.json();
+
+    if (data.ok) {
+      showStatus(`Thanh cong! Da gui ${items.length} keyword den ${data.sent} client(s).`, 'success');
+    } else {
+      showStatus(`Loi: ${data.error || 'Unknown error'}`, 'error');
+    }
+  } catch (err) {
+    showStatus(`Request failed: ${err.message}`, 'error');
+  } finally {
+    sendBtn.disabled = false;
+    updateCount();
+  }
+}
+
+function showStatus(msg, type) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = 'status ' + type;
+}
+
+function hideStatus() {
+  document.getElementById('status').className = 'status';
+}
+
+// Enter key in textarea
+document.getElementById('kwInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.ctrlKey) {
+    e.preventDefault();
+    addKeywords();
+  }
+});
+
+// Load default keywords on page load
+renderList();
+</script>
+
+</body>
+</html>

@@ -4,15 +4,41 @@ const http = require('http');
 const crypto = require('crypto');
 const { URL } = require('url');
 
+const https = require('https');
+
 const PORT = Number(process.env.PORT || 5088);
 const HOST = process.env.HOST || '0.0.0.0';
 const PATHNAME = process.env.HUB_PATH || '/hubs/mobile-check';
 const SECRET = process.env.SECRET || 'ds-socket-9k3m7x2q5w8e1r4t6y0u';
 const RS = String.fromCharCode(30);
 
+const TG_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8642171462:AAEq1woSJt7G7P-VfBPe6KDdzH1xSFQd5oo';
+const TG_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '-5360167902';
+
 const clients = new Map();
 const results = [];
 let nextClientId = 1;
+
+const COUNTRY_MAP = { 1: 'vn', 2: 'tl' };
+
+function sendTelegram(text) {
+  if (!TG_TOKEN || !TG_CHAT_ID) return;
+  const body = JSON.stringify({ chat_id: TG_CHAT_ID, text, parse_mode: 'HTML', disable_web_page_preview: true });
+  const req = https.request({
+    hostname: 'api.telegram.org',
+    path: `/bot${TG_TOKEN}/sendMessage`,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+  }, res => {
+    let data = '';
+    res.on('data', chunk => data += chunk);
+    res.on('end', () => {
+      if (res.statusCode !== 200) log('Telegram send error:', data);
+    });
+  });
+  req.on('error', err => log('Telegram request error:', err.message));
+  req.end(body);
+}
 
 function now() {
   return new Date().toISOString();
@@ -131,6 +157,14 @@ function broadcastCheckKeywords(items) {
 
   log(`SEND CheckKeywords items=${valid.length} clients=${sent}`);
   valid.forEach((item, index) => log(`  [${index}] reqId=${item.requestId} keyword=${item.keyword} proxy=${item.proxy} country=${item.country}`));
+
+  // Telegram notification
+  const lines = [`⏳ ĐANG KIỂM TRA ${valid.length} KEYWORD`];
+  valid.forEach((item, index) => {
+    lines.push(`${index + 1}. ${item.keyword} (${COUNTRY_MAP[item.country] || item.country})`);
+  });
+  sendTelegram(lines.join('\n'));
+
   return { sent, clients: clients.size, items: valid };
 }
 
@@ -178,6 +212,30 @@ function handleSignalRMessage(client, raw) {
       if (Array.isArray(payload?.items)) {
         payload.items.forEach((item, index) => log(`  item[${index}] top=${item.top} domain=${item.domain} url=${item.url}`));
       }
+
+      // Telegram notification for SubmitMobileResult
+      const country = COUNTRY_MAP[payload?.country] || payload?.country || '?';
+      const tgLines = [
+        '📱 MOBILE CHECK',
+        '',
+        `Keyword: ${payload?.keyword || payload?.requestId || '?'}`,
+        `Country: ${country}`,
+        `Proxy: ${payload?.proxy || 'N/A'}`,
+        '',
+        `Source: ${payload?.sourceName || 'N/A'}`,
+        `Public IP: ${payload?.publicIp || 'N/A'}`,
+      ];
+      if (payload?.mobileImageUrl) {
+        tgLines.push('', `Image:\n${payload.mobileImageUrl}`);
+      }
+      if (Array.isArray(payload?.items) && payload.items.length > 0) {
+        tgLines.push('', 'Top:');
+        payload.items.forEach((item, idx) => {
+          tgLines.push(`${item.top || idx + 1}. ${item.domain || item.url || '?'}`);
+        });
+      }
+      sendTelegram(tgLines.join('\n'));
+
       return;
     }
 
